@@ -3,10 +3,28 @@ import { Payment, Inspection, User } from '../models/index.js';
 import { generateInvoice } from '../utils/invoice.js';
 import { Op } from 'sequelize';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripe = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (e) {
+  stripe = null;
+  console.error('Stripe init failed:', e.message);
+}
+
+const ensureStripe = (res) => {
+  if (!stripe) {
+    res.status(503).json({ error: 'Stripe is not configured' });
+    return false;
+  }
+  return true;
+};
 
 export const createPaymentIntent = async (req, res, next) => {
   try {
+    if (!ensureStripe(res)) return;
+
     const { inspectionId, amount } = req.body;
 
     if (!inspectionId || !amount) {
@@ -54,6 +72,8 @@ export const createPaymentIntent = async (req, res, next) => {
 
 export const confirmPayment = async (req, res, next) => {
   try {
+    if (!ensureStripe(res)) return;
+
     const { paymentIntentId } = req.body;
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -165,6 +185,8 @@ export const getPaymentById = async (req, res, next) => {
 
 export const refundPayment = async (req, res, next) => {
   try {
+    if (!ensureStripe(res)) return;
+
     const payment = await Payment.findByPk(req.params.id);
 
     if (!payment) {
@@ -194,6 +216,8 @@ export const refundPayment = async (req, res, next) => {
 
 export const handleWebhook = async (req, res, next) => {
   try {
+    if (!ensureStripe(res)) return;
+
     const sig = req.headers['stripe-signature'];
     let event;
 
