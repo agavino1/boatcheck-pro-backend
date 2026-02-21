@@ -15,13 +15,16 @@ import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
+const normalizeEnv = (value) =>
+  typeof value === 'string' ? value.replace(/^['"]|['"]$/g, '') : value;
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(normalizeEnv(process.env.PORT)) || 3000;
 
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  origin: normalizeEnv(process.env.FRONTEND_URL) || 'http://localhost:3001',
   credentials: true,
 }));
 app.use(express.json());
@@ -49,7 +52,7 @@ app.get('/health', (req, res) => {
 const startHttpServer = () => {
   app.listen(PORT, () => {
     console.log(`✓ Server running on http://localhost:${PORT}`);
-    console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✓ Environment: ${normalizeEnv(process.env.NODE_ENV) || 'development'}`);
   });
 };
 
@@ -59,7 +62,7 @@ const connectDatabase = async () => {
     dbReady = true;
     console.log('✓ Database connection established');
 
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    await sequelize.sync({ alter: normalizeEnv(process.env.NODE_ENV) === 'development' });
     console.log('✓ Database models synchronized');
   } catch (err) {
     dbReady = false;

@@ -3,12 +3,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const isProd = process.env.NODE_ENV === 'production';
+const normalizeEnv = (value) =>
+  typeof value === 'string' ? value.replace(/^['"]|['"]$/g, '') : value;
 
-const sequelize = process.env.DATABASE_URL
-  ? new Sequelize(process.env.DATABASE_URL, {
+const isProd = normalizeEnv(process.env.NODE_ENV) === 'production';
+const databaseUrl = normalizeEnv(process.env.DATABASE_URL);
+
+const sequelize = databaseUrl
+  ? new Sequelize(databaseUrl, {
       dialect: 'postgres',
-      logging: process.env.NODE_ENV === 'development' ? console.log : false,
+      logging: normalizeEnv(process.env.NODE_ENV) === 'development' ? console.log : false,
       dialectOptions: isProd
         ? {
             ssl: {
@@ -25,14 +29,14 @@ const sequelize = process.env.DATABASE_URL
       },
     })
   : new Sequelize(
-      process.env.DB_NAME || 'boatcheck_pro',
-      process.env.DB_USER || 'postgres',
-      process.env.DB_PASSWORD || 'postgres',
+      normalizeEnv(process.env.DB_NAME) || 'boatcheck_pro',
+      normalizeEnv(process.env.DB_USER) || 'postgres',
+      normalizeEnv(process.env.DB_PASSWORD) || 'postgres',
       {
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 5432,
+        host: normalizeEnv(process.env.DB_HOST) || 'localhost',
+        port: Number(normalizeEnv(process.env.DB_PORT)) || 5432,
         dialect: 'postgres',
-        logging: process.env.NODE_ENV === 'development' ? console.log : false,
+        logging: normalizeEnv(process.env.NODE_ENV) === 'development' ? console.log : false,
         pool: {
           max: 5,
           min: 0,
