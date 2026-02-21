@@ -35,10 +35,40 @@ app.use('/api/technicians', technicianRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 
+let dbReady = false;
+
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(dbReady ? 200 : 503).json({
+    status: dbReady ? 'OK' : 'DEGRADED',
+    database: dbReady ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString(),
+  });
 });
+
+const startHttpServer = () => {
+  app.listen(PORT, () => {
+    console.log(`✓ Server running on http://localhost:${PORT}`);
+    console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+};
+
+const connectDatabase = async () => {
+  try {
+    await sequelize.authenticate();
+    dbReady = true;
+    console.log('✓ Database connection established');
+
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('✓ Database models synchronized');
+  } catch (err) {
+    dbReady = false;
+    console.error('✗ Database init failed, server stays up in degraded mode:', err.message);
+
+    // Retry periodically so Railway service stays alive while config is fixed.
+    setTimeout(connectDatabase, 15000);
+  }
+};
 
 // 404 handler
 app.use((req, res) => {
@@ -48,26 +78,7 @@ app.use((req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Database sync and server start
-const startServer = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✓ Database connection established');
-
-    // Sync models with database
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
-    console.log('✓ Database models synchronized');
-
-    app.listen(PORT, () => {
-      console.log(`✓ Server running on http://localhost:${PORT}`);
-      console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
-  } catch (err) {
-    console.error('✗ Failed to start server:', err.message);
-    process.exit(1);
-  }
-};
-
-startServer();
+startHttpServer();
+connectDatabase();
 
 export default app;
