@@ -42,7 +42,8 @@ let dbReady = false;
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(dbReady ? 200 : 503).json({
+  // Keep 200 so container platforms don't restart us while DB is recovering.
+  res.status(200).json({
     status: dbReady ? 'OK' : 'DEGRADED',
     database: dbReady ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
